@@ -2,12 +2,12 @@ import os
 import numpy as np
 
 from torchvision.datasets import ImageFolder
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader, Subset, SubsetRandomSampler
 
 from vggface2_custom_dataset import VGGFace2Dataset
 
 
-class VGGFace2DataManager():
+class WebFaceDataManager():
     def __init__(self, dataset_path, img_folders, transforms, device, logging, **kwargs):
         self._dataset_path = dataset_path
         self._train_img_folders = img_folders[0]
@@ -44,6 +44,7 @@ class VGGFace2DataManager():
             
     def _init_data_loaders(self):
         self._logging.info('Initializing VGGFace2 data loaders...')
+
         train_data_loader = DataLoader(
                                     dataset=self._datasets[0],
                                     batch_size=self._batch_size,
@@ -52,19 +53,19 @@ class VGGFace2DataManager():
                                     pin_memory=self._use_cuda,
                                     drop_last=True
                                 )
-        # dataset_len = len(self._datasets[1])
-        # indices = list(np.arange(0, dataset_len, 30))
-        # split = int(np.floor(len(indices) * 0.5))
-        # valid_indices = indices[split:]
-        # tmp_valid_dataset_lr = Subset(self._datasets[1], valid_indices)
+        dataset_len = len(self._datasets[1])
+        indices = list(np.arange(0, dataset_len, 5))
+        split = int(np.floor(len(indices) * 0.5))
+        valid_indices = indices[split:]
+        tmp_valid_dataset_lr = Subset(self._datasets[1], valid_indices)
         valid_data_loader_lr = DataLoader(
-                                    dataset=self._datasets[1],
+                                    dataset=tmp_valid_dataset_lr,
                                     batch_size=self._batch_size,
-                                    shuffle=True,
                                     num_workers=self._num_of_workers,
                                     pin_memory=self._use_cuda,
                                     drop_last=True
                                 )
+
         return train_data_loader, valid_data_loader_lr
             
     def _print_summary(self):

@@ -40,9 +40,9 @@ class Trainer(object):
         
         #print('.....................', student_logits)
         correct = (student_logits.argmax(dim=1).cpu() == labels).sum().item() 
-        #loss_triple = triple_loss(teacher_features.unsqueeze(2), student_features.unsqueeze(2))
+        loss_triple = triple_loss(teacher_features.unsqueeze(2), student_features.unsqueeze(2)) 
         loss_total = F.cross_entropy(student_logits, labels.to(self._device)) + 0.008*self._center_loss(student_features, labels.to(self._device))  \
-                                                                              #+ 0.1*loss_triple
+                                                                              + 0.1*loss_triple
         # print('--------------', teacher_features.shape, '------------------')
         # print('--------------', student_features.shape, '------------------')
         # print('--------------', student_logits.shape, '------------------')
@@ -92,7 +92,7 @@ class Trainer(object):
                 param.grad.data *= (1./0.008)
 
             if j % self._batch_accumulation == 0:
-                if nb_backward_steps%10 == 1:
+                if nb_backward_steps%50 == 1:
                     self._logging.info(
                                 f'Train [{epoch}] - [{batch_idx}]/[{len(self._train_loader)}]:'
                                 f'\n\t\t\tLoss LR: {loss_/batch_idx:.3f} --- Acc LR: {(correct_/n_samples_)*100:.2f}%'                               

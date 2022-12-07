@@ -13,7 +13,7 @@ from tensorboardX import SummaryWriter
 
 from utils import *
 from trainer import Trainer
-from vggface2_data_manager import VGGFace2DataManager
+from webface_data_manager import WebFaceDataManager
 from loss import CenterLoss
 
 parser = argparse.ArgumentParser("CR-FR")
@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser("CR-FR")
 parser.add_argument('-s', '--seed', type=int, default=41, 
                 help='Set random seed (default: 41)')
 # Model related options
-parser.add_argument('-bp', '--model-base-path', default='pretrained/senet50_ft_pytorch.pt', 
+parser.add_argument('-bp', '--model-base-path', default='pretrained/weight_10.pt', 
                 help='Path to base model checkpoint')
 parser.add_argument('-ckp', '--model-ckp', 
                 help='Path to fine tuned model checkpoint')
@@ -41,15 +41,15 @@ parser.add_argument('-rs', '--train-steps', type=int, default=500,
                 help='Set number of training iterations before each validation run (default: 1)')
 parser.add_argument('-sp', '--scheduler-patience', type=int, default=5, 
                 help='Scheduler patience (default: 5)')
-parser.add_argument('-b', '--batch-size', type=int, default=16, 
-                help='Batch size (default: 32)')
+parser.add_argument('-b', '--batch-size', type=int, default=256, 
+                help='Batch size (default: 256)')
 parser.add_argument('-ba', '--batch-accumulation', type=int, default=1,  ## 8 batch moi update parameter mot lan 
                 help='Batch accumulation iterations (default: 1)')
 parser.add_argument('-nw', '--num-workers', type=int, default=8, 
                 help='Number of workers (default: 8)')
 parser.add_argument('-nt', '--nesterov', action='store_true',
                 help='Use Nesterov (default: False)')
-parser.add_argument('-fr', '--valid-fix-resolution', type=int, default=8, 
+parser.add_argument('-fr', '--valid-fix-resolution', type=int, default=16, 
                 help='Resolution on validation images (default: 8)')
 args = parser.parse_args()
 
@@ -93,7 +93,7 @@ device = torch.device('cuda' if cuda_available else 'cpu')
 # ---------------- LOAD MODEL & OPTIMIZER & SCHEDULER --------------------------
 sm, tm = load_models(args.model_base_path, device, args.model_ckp, number_class=10572)
 
-center_loss = CenterLoss(num_classes=2, feat_dim=2048, use_gpu=True)  #Se-resnet-50
+center_loss = CenterLoss(num_classes=10572, feat_dim=512, use_gpu=True) 
 params = list(sm.parameters()) + list(center_loss.parameters())
 
 optimizer = SGD(
@@ -124,9 +124,9 @@ kwargs = {
     'num_of_workers': args.num_workers,
     'valid_fix_resolution': args.valid_fix_resolution
 }
-data_manager = VGGFace2DataManager(
-                            dataset_path=args.dset_base_path,
-                            img_folders=['images', 'images'],
+data_manager = WebFaceDataManager(
+                            dataset_path=args.dset_base_path,  
+                            img_folders=['train', 'val'],                         
                             transforms=[get_transforms(mode='train'), get_transforms(mode='eval')],
                             device=device,
                             logging=logging,
