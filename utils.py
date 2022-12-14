@@ -12,8 +12,8 @@ def load_models(model_base_path, device="cpu", model_ckp=None, number_class=2):
     # tm = torch.load(model_base_path)
     sm = InceptionResnetV1(classify=True, num_classes=number_class)
     tm = InceptionResnetV1(classify=True, num_classes=number_class)
-    sm.load_state_dict(torch.load('/home/crist_tienngoc/TOMO/fr/train_teacher/weights/weight_9'))
     tm.load_state_dict(torch.load('/home/crist_tienngoc/TOMO/fr/train_teacher/weights/weight_9'))
+    sm.load_state_dict(torch.load('/home/crist_tienngoc/TOMO/fr/train_teacher/weights/weight_9'))
     
     if model_ckp is not None:
         assert os.path.exists(model_ckp), f"Model checkpoint not found at: {model_ckp}"
@@ -35,13 +35,14 @@ def load_models(model_base_path, device="cpu", model_ckp=None, number_class=2):
 
 
 def save_model_checkpoint(best_acc, batch_idx, epoch, model_state_dict, out_dir, logging):
-    state_dict = {
-                'best_acc': best_acc,
-                'epoch': epoch,
-                'model_state_dict': model_state_dict
-            }
+    # state_dict = {
+    #             'best_acc': best_acc,
+    #             'epoch': epoch,
+    #             'model_state_dict': model_state_dict
+    #         }
     file_name = os.path.join(out_dir, f'models_ckp_{epoch}_{batch_idx}.pth')
-    torch.save(state_dict, file_name)
+    torch.save(model_state_dict, file_name)
+    #torch.save(state_dict, file_name)
     logging.info(
             f"Saved model with best acc: {best_acc}"
             f"\nAt epoch: {epoch}"

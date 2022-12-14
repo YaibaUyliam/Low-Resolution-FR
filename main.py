@@ -32,7 +32,7 @@ parser.add_argument('-tp', '--tensorboard-path', default='experiments_results',
 # Training Options
 parser.add_argument('-dp', '--dset-base-path', 
                 help='Base path to datasets')
-parser.add_argument('-lr', '--learning-rate', default=0.001, type=float, 
+parser.add_argument('-lr', '--learning-rate', default=0.01, type=float, 
                 help='Learning rate (default: 1.e-2)')
 parser.add_argument('-m', '--momentum', default=0.9, type=float, 
                 help='Optimizer momentum (default: 0.9)')

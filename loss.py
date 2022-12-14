@@ -45,8 +45,7 @@ class CenterLoss(nn.Module):
 
         return loss
 
-def find_pair(feature_ori, feature_lr):
-    len_batch = len(feature_ori)
+def find_pair(feature_ori, feature_lr, len_batch):
     list_ind = [*range(len_batch)] 
     pairs = []
     dis_type = nn.PairwiseDistance()
@@ -57,12 +56,8 @@ def find_pair(feature_ori, feature_lr):
         dis_total = dis_HL + dis_LH
         ind_dis_min = torch.argmin(dis_total) + 1
         pairs.append([list_ind[0], list_ind[ind_dis_min]])
-        list_ind.pop(ind_dis_min)
+        list_ind.pop(ind_dis_min)   
         list_ind.pop(0)
-        
-        # print(pair)
-        # print(dis_total)
-        # print(min(dis_total))
     
     if len(list_ind) == 2:
         pairs.append([list_ind[0], list_ind[1]])
@@ -72,18 +67,19 @@ def find_pair(feature_ori, feature_lr):
 def triple_loss(feature_ori, feature_lr):
     loss = 0
     loss_function = nn.TripletMarginLoss(margin=0.1, p=2)
-    len_batch = len(feature_ori)
-    pairs = find_pair(feature_ori, feature_lr)
-
+    len_batch = feature_ori.shape[0]
+    pairs = find_pair(feature_ori, feature_lr, len_batch)
+    feature_ori = torch.unsqueeze(feature_ori, 1)
+    feature_lr = torch.unsqueeze(feature_lr, 1)
     for feature_pair in pairs:
-
+        #print(feature_ori[feature_pair[0]].shape)
         loss_h_0 = loss_function(feature_ori[feature_pair[0]], feature_lr[feature_pair[0]], feature_lr[feature_pair[1]])  # shape (, 1)
         loss_l_0 = loss_function(feature_lr[feature_pair[0]], feature_ori[feature_pair[0]], feature_ori[feature_pair[1]])
 
         loss_h_1 = loss_function(feature_ori[feature_pair[1]], feature_lr[feature_pair[1]], feature_lr[feature_pair[0]])
         loss_l_1 = loss_function(feature_lr[feature_pair[1]], feature_ori[feature_pair[1]], feature_ori[feature_pair[0]])
 
-        loss += (loss_h_0 + loss_l_0 + loss_h_1 + loss_l_1)/2
+        loss += loss_h_0 + loss_l_0 + loss_h_1 + loss_l_1
 
     return loss/len_batch
 
