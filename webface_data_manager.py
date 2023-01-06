@@ -53,19 +53,18 @@ class WebFaceDataManager():
                                     pin_memory=self._use_cuda,
                                     drop_last=True
                                 )
-        dataset_len = len(self._datasets[1])
-        indices = list(np.arange(0, dataset_len, 5))
-        split = int(np.floor(len(indices) * 0.5))
-        valid_indices = indices[split:]
-        tmp_valid_dataset_lr = Subset(self._datasets[1], valid_indices)
+        # dataset_len = len(self._datasets[1])
+        # indices = list(np.arange(0, dataset_len, 30))
+        # split = int(np.floor(len(indices) * 0.5))
+        # valid_indices = indices[split:]
+        # tmp_valid_dataset_lr = Subset(self._datasets[1], valid_indices)
         valid_data_loader_lr = DataLoader(
-                                    dataset=tmp_valid_dataset_lr,
+                                    dataset=self._datasets[1],
                                     batch_size=self._batch_size,
                                     num_workers=self._num_of_workers,
                                     pin_memory=self._use_cuda,
                                     drop_last=True
                                 )
-
         return train_data_loader, valid_data_loader_lr
             
     def _print_summary(self):

@@ -4,7 +4,6 @@ import sys
 import torch
 from tqdm import tqdm
 from PIL import Image
-import random 
 
 from torch.utils.data import Dataset
 
@@ -14,9 +13,16 @@ class VGGFace2Dataset(Dataset):
         self._root = root
         self.transforms = transforms
         self._train = train
-        self._valid_resolution = kwargs['valid_fix_resolution']
+        self._curr_step_iterations = kwargs['curr_step_iterations']
         self._algo_name = kwargs['algo_name']
         self._algo = kwargs['algo_val']
+        self._curriculum = kwargs['curriculum']
+        self._curriculum_index = 0
+        if self._train:
+            self._downsampling_prob = 0.1 if self._curriculum else kwargs['downsampling_prob']
+        else:
+            self._downsampling_prob = 1.0 # validation
+        self._valid_resolution = kwargs['valid_fix_resolution']
         self._classes, self._class_to_idx = self._find_classes()
         self._samples = self._make_dataset()
         self._loader = self._get_loader
@@ -24,6 +30,8 @@ class VGGFace2Dataset(Dataset):
         logging.info(
             f'VGGFace2 custom {tr} dataset info:'
             f'\n\t\t\t\tRoot folder:       {self._root}'
+            f'\n\t\t\t\tDownsampling prob: {self._downsampling_prob}'
+            f'\n\t\t\t\tUse Curriculum:    {self._curriculum and self._train}'
             f'\n\t\t\t\tValid resolution:  {self._valid_resolution}'
         )
 
@@ -33,7 +41,7 @@ class VGGFace2Dataset(Dataset):
         else:
             classes = [d for d in os.listdir(self._root) if os.path.isdir(os.path.join(self._root, d))]
         classes.sort()
-        class_to_idx = {classes[i]: i for i in range(len(classes))}       
+        class_to_idx = {classes[i]: i for i in range(len(classes))}
         return classes, class_to_idx
 
     def _make_dataset(self):
@@ -46,7 +54,7 @@ class VGGFace2Dataset(Dataset):
                         leave=False
                     )
         for target in progress_bar:
-            d = os.path.join(dir, target) #path to folder class
+            d = os.path.join(dir, target)
             if not os.path.isdir(d):
                 continue
             for root, _, fnames in sorted(os.walk(d)):
@@ -64,12 +72,22 @@ class VGGFace2Dataset(Dataset):
 
     def _lower_resolution(self, img):
         w_i, h_i = img.size
+        r = h_i/float(w_i)
         if self._train:
-            size_down_list = [8, 12, 16, 20]
-            size_down_choice = random.choice(size_down_list)
+            res = torch.rand(1).item()
+            res = 3 + 5*res
+            res = 2**int(res)
         else:
-            size_down_choice = self._valid_resolution
-        img2 = img.resize((size_down_choice, size_down_choice), self._algo)
+            res = self._valid_resolution
+        if res >= w_i or res >= h_i:
+            return img
+        if h_i < w_i:
+            h_n = res
+            w_n = h_n/float(r)
+        else:
+            w_n = res
+            h_n = w_n*float(r)
+        img2 = img.resize((int(w_n), int(h_n)), self._algo)
         img2 = img2.resize((w_i, h_i), self._algo)
         return img2
 
@@ -77,11 +95,16 @@ class VGGFace2Dataset(Dataset):
         return len(self._samples)
 
     def __getitem__(self, idx):
+        # if self._train and self._curriculum:
+        #     self._curriculum_index += 1
+        #     if (self._curriculum_index % self._curr_step_iterations) == 0 and self._downsampling_prob < 1.0:
+        #         self._downsampling_prob += 0.1
         path, label = self._samples[idx]
         img = self._loader(path)
         orig_img = self._loader(path)
-        img_lr = self._lower_resolution(img)
+        #if torch.rand(1).item() < self._downsampling_prob or not self._train:
+        img = self._lower_resolution(img)
         if self.transforms:
-            img_lr = self.transforms(img_lr)
+            img = self.transforms(img)
             orig_img = self.transforms(orig_img)
-        return img_lr, orig_img, label
+        return img, orig_img, label, torch.tensor(self._curriculum_index), torch.tensor(self._downsampling_prob)

@@ -12,19 +12,19 @@ def load_models(model_base_path, device="cpu", model_ckp=None, number_class=2):
     # tm = torch.load(model_base_path)
     sm = InceptionResnetV1(classify=True, num_classes=number_class)
     tm = InceptionResnetV1(classify=True, num_classes=number_class)
-    tm.load_state_dict(torch.load('/home/crist_tienngoc/TOMO/fr/train_teacher/weights/weight_9'))
-    sm.load_state_dict(torch.load('/home/crist_tienngoc/TOMO/fr/train_teacher/weights/weight_9'))
+    tm.load_state_dict(torch.load('/home/crist_tienngoc/TOMO/fr/train_teacher/weights/weight_5'))
+    sm.load_state_dict(torch.load('/home/crist_tienngoc/TOMO/fr/train_teacher/weights/weight_5'))
     
-    if model_ckp is not None:
-        assert os.path.exists(model_ckp), f"Model checkpoint not found at: {model_ckp}"
-        ckp = torch.load(model_ckp, map_location='cpu')
-        [p.data.copy_(torch.from_numpy(ckp['model_state_dict'][n].numpy())) for n, p in sm.named_parameters()]
-        for n, m in sm.named_modules():
-            if isinstance(m, nn.BatchNorm2d):
-                m.momentum = 0.1
-                m.running_var = ckp['model_state_dict'][n + '.running_var']
-                m.running_mean = ckp['model_state_dict'][n + '.running_mean']
-                m.num_batches_tracked = ckp['model_state_dict'][n + '.num_batches_tracked']
+    # if model_ckp is not None:
+    #     assert os.path.exists(model_ckp), f"Model checkpoint not found at: {model_ckp}"
+    #     ckp = torch.load(model_ckp, map_location='cpu')
+    #     [p.data.copy_(torch.from_numpy(ckp['model_state_dict'][n].numpy())) for n, p in sm.named_parameters()]
+    #     for n, m in sm.named_modules():
+    #         if isinstance(m, nn.BatchNorm2d):
+    #             m.momentum = 0.1
+    #             m.running_var = ckp['model_state_dict'][n + '.running_var']
+    #             m.running_mean = ckp['model_state_dict'][n + '.running_mean']
+    #             m.num_batches_tracked = ckp['model_state_dict'][n + '.num_batches_tracked']
 
     # sm.classifier_1 = nn.Linear(in_features = 2048, out_features = number_class, bias = True)
     # tm.classifier_1 = nn.Linear(in_features = 2048, out_features = number_class, bias = True)

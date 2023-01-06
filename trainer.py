@@ -6,12 +6,13 @@ import torch.nn.functional as F
 from utils import *
 from loss import *
 class Trainer(object):
-    def __init__(self, student, teacher, center_loss, optimizer, scheduler, loaders, device, batch_accumulation, 
+    def __init__(self, student, teacher, center_loss, optimizer, optimizer_centloss, scheduler, loaders, device, batch_accumulation, 
                 train_steps, out_dir, tb_writer, logging):
         self._student = student
         self._teacher = teacher
         self._center_loss = center_loss
         self._optimizer = optimizer
+        self._optimizer_centloss = optimizer_centloss
         self._scheduler = scheduler
         self._train_loader, self._valid_loader_lr = loaders
         self._device = device
@@ -40,10 +41,11 @@ class Trainer(object):
 
         #print('.....................', student_logits)
         correct = (student_logits.argmax(dim=1).cpu() == labels).sum().item() 
+
         loss_triple = triple_loss(teacher_features, student_features) 
         loss_center = self._center_loss(student_features, labels.to(self._device))
         loss_entropy = F.cross_entropy(student_logits, labels.to(self._device))
-        loss_total = loss_entropy + 0.003*loss_center + loss_triple
+        loss_total = loss_entropy + 0.008*loss_center + 0.1*loss_triple
                                                                               
         # print('--------------', teacher_features.shape, '------------------')
         # print('--------------', student_features.shape, '------------------')
@@ -58,6 +60,7 @@ class Trainer(object):
 
         self._student.train()
         self._optimizer.zero_grad()
+        self._optimizer_centloss.zero_grad()
 
         j = 1
         loss_ = 0
@@ -75,14 +78,9 @@ class Trainer(object):
                 ## Save best model
                 if tmp_best_acc > best_acc:
                     best_acc = tmp_best_acc
-                    save_model_checkpoint(
-                                    best_acc, 
-                                    batch_idx, 
-                                    epoch, 
-                                    self._student.state_dict(), 
-                                    self._out_dir, 
-                                    self._logging
-                                )
+                    
+                    path_save = os.path.join(self._out_dir, f'models_ckp_{epoch}_{batch_idx}.pt')
+                    torch.save(self._student, path_save)
                 
             loss, labels, correct, loss_triple, loss_center, loss_entropy = self._eval_batch(loader_idx=-1, data=data)
 
@@ -91,10 +89,10 @@ class Trainer(object):
             n_samples_ += labels.shape[0]
             loss.backward()
             for param in self._center_loss.parameters():
-                param.grad.data *= (1./0.003)
+                param.grad.data *= (1./0.008)
 
             if j % self._batch_accumulation == 0:
-                if nb_backward_steps%50 == 1:
+                if nb_backward_steps%200 == 0:
                     self._logging.info(
                                 f'Train [{epoch}] - [{batch_idx}]/[{len(self._train_loader)}]:'
                                 f'\n\t\t\tLoss LR: {loss_/batch_idx:.3f} --- Acc LR: {(correct_/n_samples_)*100:.2f}%'     
@@ -108,6 +106,8 @@ class Trainer(object):
                 
                 j = 1
                 nb_backward_steps += 1
+                self._optimizer_centloss.step()
+                self._optimizer_centloss.zero_grad()
                 self._optimizer.step()
                 self._optimizer.zero_grad()
 
@@ -115,7 +115,7 @@ class Trainer(object):
                 j += 1
         
     def _val(self, epoch):
-        self._student.eval()
+        #self._student.eval()
         
         with torch.no_grad():
             #for loader_idx, local_loader in enumerate([self._valid_loader, self._valid_loader_lr]):
@@ -135,16 +135,12 @@ class Trainer(object):
                 loss_ = loss_ / len(self._valid_loader_lr)
                 acc_ = (correct_ / n_samples) * 100
 
-                if loader_idx == 2:
-                    self._logging.info(f'Valid loss HR: {loss_:.3f} --- Valid acc HR: {acc_:.2f}%'
-                                       f'\n\t\t\tLoss triple: {loss_triple:.3f} --- Loss center: {loss_center:.2f} \
-                                      --- Loss entropy: {loss_entropy:.3f}')
-                    self._tb_writer.add_scalar('validation/loss_hr', loss_, self._it_v)
-                    self._tb_writer.add_scalar('validation/accuracy_hr', acc_, self._it_v)
-                else:
-                    self._logging.info(f'Valid loss LR: {loss_:.3f} --- Valid acc LR: {acc_:.2f}%')
-                    self._tb_writer.add_scalar('validation/loss_lr', loss_, self._it_v)
-                    self._tb_writer.add_scalar('validation/accuracy_lr', acc_, self._it_v)
+
+                self._logging.info(f'Valid loss HR: {loss_:.3f} --- Valid acc HR: {acc_:.2f}%'
+                                    f'\n\t\t\tLoss triple: {loss_triple:.3f} --- Loss center: {loss_center:.2f} \
+                                    --- Loss entropy: {loss_entropy:.3f}')
+                self._tb_writer.add_scalar('validation/loss_hr', loss_, self._it_v)
+                self._tb_writer.add_scalar('validation/accuracy_hr', acc_, self._it_v)
 
         self._it_v += 1
 
@@ -152,5 +148,5 @@ class Trainer(object):
 
     def train(self, epochs):
         #self._val(0)
-        [self._train(epoch) for epoch in range(1, epochs+1)]
+        [self._train(epoch) for epoch in range(1, epochs)]
 

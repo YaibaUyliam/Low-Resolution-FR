@@ -44,6 +44,7 @@ class VGGFace2DataManager():
             
     def _init_data_loaders(self):
         self._logging.info('Initializing VGGFace2 data loaders...')
+
         train_data_loader = DataLoader(
                                     dataset=self._datasets[0],
                                     batch_size=self._batch_size,
@@ -60,7 +61,6 @@ class VGGFace2DataManager():
         valid_data_loader_lr = DataLoader(
                                     dataset=self._datasets[1],
                                     batch_size=self._batch_size,
-                                    shuffle=True,
                                     num_workers=self._num_of_workers,
                                     pin_memory=self._use_cuda,
                                     drop_last=True

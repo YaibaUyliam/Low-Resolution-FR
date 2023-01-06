@@ -30,15 +30,21 @@ parser.add_argument('-ep', '--experimental-path', default='experiments_results',
 parser.add_argument('-tp', '--tensorboard-path', default='experiments_results', 
                 help='Tensorboard main log dir path')
 # Training Options
-parser.add_argument('-dp', '--dset-base-path', 
+parser.add_argument('-dp', '--dset-base-path', default='/home/crist_tienngoc/TOMO/fr/dataset',
                 help='Base path to datasets')
 parser.add_argument('-lr', '--learning-rate', default=0.01, type=float, 
                 help='Learning rate (default: 1.e-2)')
 parser.add_argument('-m', '--momentum', default=0.9, type=float, 
                 help='Optimizer momentum (default: 0.9)')
+parser.add_argument('-lp', '--downsampling-prob', default=0.1, type=float,
+                help='Downsampling probability (default: 0.1)')
 parser.add_argument('-e', '--epochs', type=int, default=100, help='Training epochs (default: 1)')
-parser.add_argument('-rs', '--train-steps', type=int, default=500,
+parser.add_argument('-rs', '--train-steps', type=int, default=800,
                 help='Set number of training iterations before each validation run (default: 1)')
+parser.add_argument('-c', '--curriculum', action='store_true', default=True,
+                help='Use curriculum learning (default: False)')
+parser.add_argument('-cs', '--curr-step-iterations', type=int, default=35000, 
+                help='Number of images for each curriculum step (default: 35000)')
 parser.add_argument('-sp', '--scheduler-patience', type=int, default=5, 
                 help='Scheduler patience (default: 5)')
 parser.add_argument('-b', '--batch-size', type=int, default=256, 
@@ -96,6 +102,7 @@ sm, tm = load_models(args.model_base_path, device, args.model_ckp, number_class=
 center_loss = CenterLoss(num_classes=10572, feat_dim=512, use_gpu=True) 
 params = list(sm.parameters()) + list(center_loss.parameters())
 
+optimizer_centloss = SGD(center_loss.parameters(), lr=0.1)
 optimizer = SGD(
             params=params, 
             lr=args.learning_rate, 
@@ -119,10 +126,13 @@ scheduler = ReduceLROnPlateau(
 # ---------------------------- LOAD DATA ---------------------------------------
 kwargs = {
     'batch_size': args.batch_size,
+    'downsampling_prob': args.downsampling_prob,
+    'curriculum': args.curriculum,
+    'curr_step_iterations': args.curr_step_iterations, 
     'algo_name': 'bilinear',
     'algo_val': PIL.Image.BILINEAR,
-    'num_of_workers': args.num_workers,
-    'valid_fix_resolution': args.valid_fix_resolution
+    'valid_fix_resolution': args.valid_fix_resolution,
+    'num_of_workers': args.num_workers
 }
 data_manager = WebFaceDataManager(
                             dataset_path=args.dset_base_path,  
@@ -140,6 +150,7 @@ if __name__ == '__main__':
         teacher=tm, 
         center_loss=center_loss, 
         optimizer=optimizer,
+        optimizer_centloss=optimizer_centloss,
         scheduler=scheduler,
         loaders=data_manager.get_loaders(),
         device=device,
